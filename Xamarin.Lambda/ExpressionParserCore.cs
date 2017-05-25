@@ -516,7 +516,6 @@ namespace Xamarin.Lambda
                     #region case ".":
                     case ".":
                         {
-                            //todo:?
                             //return null;
                             throw new ParseUnknownException(".", this._codeParser.Index);
                         }
@@ -873,8 +872,35 @@ namespace Xamarin.Lambda
                                 // 获取参数
                                 List<Expression> listParam = ReadParams("(", false);
 
-                                MethodInfo methodInfo = currentExpression.Type.GetRuntimeMethod(strMember, listParam.Select(par => par.GetType()).ToArray());
+                                MethodInfo methodInfo =
+                                    currentExpression
+                                    .Type
+                                    .GetRuntimeMethods()
+                                    .FirstOrDefault(x => !x.ContainsGenericParameters
+                                        && x.Name == strMember
+                                        && matchTypeArray(x.GetParameters().Select(y => y.ParameterType), listParam.Select(par => par.Type)));
                                 currentExpression = Expression.Call(currentExpression, methodInfo, listParam.ToArray());
+                            }
+                            // GenericParameter
+                            else if (strOperator == "<")
+                            {
+                                var genericParams = ReadGenericParams(false);
+                                strOperator = _codeParser.PeekString();
+                                // 获取参数
+                                List<Expression> listParam = ReadParams("(", false);
+
+                                var methodInfo =
+                                    currentExpression
+                                    .Type
+                                    .GetRuntimeMethods()
+                                    .FirstOrDefault(x => x.ContainsGenericParameters
+                                        && x.GetGenericArguments().Count() == genericParams.Count
+                                        && x.Name == strMember
+                                        && matchTypeArray(x.GetParameters().Select(y => y.ParameterType), listParam.Select(par => par.Type)));
+                                if (methodInfo == null) throw new FormatException($"Generic method {strMember} not found in class {currentExpression.Type.FullName}.");
+                                methodInfo = methodInfo.MakeGenericMethod(genericParams.ToArray());
+                                currentExpression = Expression.Call(currentExpression, methodInfo, listParam.ToArray());
+
                             }
                             // 成员(PropertyOrField)
                             else
@@ -963,8 +989,9 @@ namespace Xamarin.Lambda
                     case "??":
                         {
                             Expression right = ReadExpression(nextLevel, wrapStart, out isClosedWrap);
-                            Expression test = Expression.Equal(currentExpression, Expression.Constant(null, currentExpression.Type));
-                            currentExpression = Expression.Condition(test, right, currentExpression);
+                            currentExpression = Expression.Coalesce(currentExpression, right);
+                            //Expression test = Expression.Equal(currentExpression, Expression.Constant(null, currentExpression.Type));
+                            //currentExpression = Expression.Condition(test, right, currentExpression);
                         }
                         break;
                     #endregion
@@ -976,6 +1003,16 @@ namespace Xamarin.Lambda
             /********************** (End) 第二(N)次读取，都将是二元或三元操作 **********************/
 
             return currentExpression;
+        }
+
+        private static bool matchTypeArray(IEnumerable<Type> a, IEnumerable<Type> b)
+        {
+            if (a.Count() != b.Count()) return false;
+            for (int i = 0; i < a.Count(); i++)
+            {
+                if (a.ElementAt(i) != b.ElementAt(i)) return false;
+            }
+            return true;
         }
 
         private static object ParseNumber(string val)
@@ -1039,6 +1076,32 @@ namespace Xamarin.Lambda
             {
                 left = Expression.Convert(left, right.Type);
             }
+        }
+
+        private List<Type> ReadGenericParams(bool hasReadPre)
+        {
+            // 读前置括号
+            if (!hasReadPre)
+            {
+                _codeParser.ReadSymbol("<");
+            }
+            var ret = new List<Type>();
+            while (true)
+            {
+                if (_codeParser.PeekString() == ">")
+                {
+                    _codeParser.ReadString();
+                    break;
+                }
+                var type = ReadType(null);
+                if (type == null) break;
+                ret.Add(type);
+                //var token = _codeParser.ReadString(true).Trim();
+                //if (token == ",") continue;
+                //else if (token == ">") break;
+                //else ret.Add(token);
+            }
+            return ret;
         }
 
         private List<Expression> ReadParams(string startSymbol, bool hasReadPre)

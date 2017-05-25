@@ -9,7 +9,7 @@ namespace Xamarin.Lambda
 
         /// <summary>
         /// Key for caching
-        /// </summary>
+        /// </summary> 
         private class CacheKey
         {
             public Type TDelegateType { get; private set; }

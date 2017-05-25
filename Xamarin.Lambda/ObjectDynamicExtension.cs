@@ -10,7 +10,7 @@
         /// <param name = "code"> execute the code </ param>
         /// <param name = "namespaces"> import namespace </ param>
         /// <param name = "objects"> parameter object ($ 1 for the first object; $ 2 for the second object) </param>
-        /// <returns> </returns>
+        /// <returns> </returns> 
 
         static public T E<T>(this object instance, string code, string[] namespaces, params object[] objects)
             where T : class

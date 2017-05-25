@@ -457,7 +457,6 @@ namespace Xamarin.Lambda
                 case 'a':
                     return '\a';
 
-                //todo:
                 //case 'x':
                 //case 'X':
                 //    sb.Append(Convert.ToChar();
